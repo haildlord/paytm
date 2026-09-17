@@ -2,19 +2,20 @@ const express = require("express");
 const zod = require("zod");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
+const AppError = require("../utils/AppError.js");
 
-const {userModel, accountModel} = require("../../db");
-const {JWT_SECRET} = require("../../backend/config")
-const {authMiddleware} = require("../middleware.js");
+const { userModel, accountModel } = require("../../db");
+const { JWT_SECRET } = require("../../backend/config");
+const { authMiddleware } = require("../middleware.js");
 
 const router = express.Router();
 
 const signupBody = zod.object({
     userName: zod.string().email(),
-	firstName: zod.string().trim().min(3),
-	lastName: zod.string().trim().min(3),
-	password: zod.string().trim().min(3)
-})
+    firstName: zod.string().trim().min(3),
+    lastName: zod.string().trim().min(3),
+    password: zod.string().trim().min(3)
+});
 
 const updateBody = zod.object({
     firstName: zod.string().trim().min(3).optional(),
@@ -24,28 +25,25 @@ const updateBody = zod.object({
     message: "At least one field is required",
 });
 
+// Middleware: Input Validation
 function inputValidation(path) {
     return (req, res, next) => {
-        try{
-            const {success} = path === 'signup'
+        try {
+            const result = path === 'signup'
                 ? signupBody.safeParse(req.body)
                 : updateBody.safeParse(req.body);
         
-            if(!success){
-                return res.status(411).json({
-                    message: "Incorrect inputs"
-                })    
+            if (!result.success) {
+                return next(new AppError("Incorrect or missing inputs", 400));
             }
-        
             next();
-            
-        }catch(err){
-            const customErr = new Error(`InputValidation : some error happened while checking for input : ${err}`);
-            next(customErr)
+        } catch (err) {
+            next(new AppError(`Validation failed: ${err.message}`, 500));
         }
     }
 }
 
+// Middleware: Check if Email exists
 async function emailCheck(req, res, next) {
     const { userName } = req.body; 
 
@@ -53,50 +51,45 @@ async function emailCheck(req, res, next) {
         const existingUser = await userModel.findOne({ userName }).exec();
 
         if (existingUser) {
-            return res.status(411).json({
-                message: "Email already taken"
-            });    
+            return next(new AppError("Email already taken", 409));    
         }
 
         next();
-        
     } catch(err) {
-        const customErr = new Error(`Database failed while checking email: ${err.message}`);
-        customErr.location = "emailCheck Middleware";
-        next(customErr);
+        next(new AppError("Database error while checking email availability", 500));
     }
 }
 
-async function existingUser(req, res, next){
+// Middleware: Verify user exists before sign-in
+async function existingUser(req, res, next) {
+    const { userName, password } = req.body;
 
-    const userName = req.body.userName;
-    const userPassword = req.body.password;
-
-    if(!userName || !userPassword){
-        return res.status(411).json({
-            message: "Invalid Inputs"
-        });      
+    if (!userName || !password) {
+        return next(new AppError("Username and password are required", 400));      
     }
 
-    try{
-        const {_id, password} = await userModel.findOne({
-            userName
-        }).exec();
+    try {
+        const user = await userModel.findOne({ userName }).exec();
 
-        req.userId = _id;
-        req.hashedPassword = password;
+        if (!user) {
+            // 401 Unauthorized is standard for bad login credentials
+            return next(new AppError("Invalid username or password", 401));
+        }
+
+        req.userId = user._id;
+        req.hashedPassword = user.password;
 
         next();
-    }catch(err){
-        const customErr = new Error(`error while finding existing user : ${err}`);
-        next(customErr);
+    } catch(err) {
+        next(new AppError("Database error while fetching user account", 500));
     }
 }
 
-router.post('/signup', inputValidation('signup'), emailCheck, async (req, res) => {
-    const {userName, firstName, lastName, password} = req.body;
+// Route: Sign Up
+router.post('/signup', inputValidation('signup'), emailCheck, async (req, res, next) => {
+    const { userName, firstName, lastName, password } = req.body;
 
-    try{
+    try {
         const hashedPassword = await bcrypt.hash(password, 10);
         const userDoc = new userModel({
             userName,
@@ -110,56 +103,49 @@ router.post('/signup', inputValidation('signup'), emailCheck, async (req, res) =
 
         const userAccount = new accountModel({
             userId: savedUser._id,
-            balance:  Math.floor(Math.random() * 10000) + 1 
-        })
+            balance: Math.floor(Math.random() * 10000) + 1 
+        });
         await userAccount.save();
 
-        return res.status(200).json({
-            token: jwtString,
+        return res.status(201).json({ // 201 Created
             message: "User created successfully",
+            token: jwtString
         });
 
-    }catch(err){
-        res.status(411).json({
-            message: "Error while Signing up",
-            error: err
-        })
+    } catch(err) {
+        next(new AppError("An error occurred while creating the account", 500));
     }
-})
+});
 
-router.post('/signin', existingUser, async (req, res) => {
-    const {password} = req.body;
-    const {hashedPassword, userId} = req;
+// Route: Sign In
+router.post('/signin', existingUser, async (req, res, next) => {
+    const { password } = req.body;
+    const { hashedPassword, userId } = req;
 
-    try{
+    try {
+        const isPasswordValid = await bcrypt.compare(password, hashedPassword);
 
-        const ok = await bcrypt.compare(password, hashedPassword);
-
-        if (!ok) {
-            return res.status(411).json({
-                message: "Password doesnot match"
-            });
+        if (!isPasswordValid) {
+            return next(new AppError("Invalid username or password", 401));
         }
 
         const jwtString = jwt.sign({ userId: userId }, JWT_SECRET);
 
         return res.status(200).json({
-            message: "Login Successfull",
+            message: "Login successful",
             token: jwtString
-        })
+        });
 
-    }catch(err){
-        res.status(411).json({
-            message: "Error while Signining",
-            error: err
-        })
+    } catch(err) {
+        next(new AppError("An error occurred during sign-in", 500));
     }
-})
+});
 
-router.put('/update', authMiddleware, inputValidation('update'), async (req, res) => {
-    const {firstName, lastName, password} = req.body;
+// Route: Update User
+router.put('/update', authMiddleware, inputValidation('update'), async (req, res, next) => {
+    const { firstName, lastName, password } = req.body;
     
-    try{
+    try {
         const update = {};
         if (firstName !== undefined) update.firstName = firstName;
         if (lastName !== undefined) update.lastName = lastName;
@@ -169,31 +155,27 @@ router.put('/update', authMiddleware, inputValidation('update'), async (req, res
 
         return res.status(200).json({
             message: "Updated successfully",
-        })
-    }catch(err){
-        res.status(411).json({
-            message: "Error while updating information",
-            error: err
-        })
+        });
+    } catch(err) {
+        next(new AppError("An error occurred while updating the profile", 500));
     }
-})
+});
 
-router.get("/bulk", async (req, res) => {
+// Route: Get Bulk Users
+router.get("/bulk", async (req, res, next) => {
     const filter = req.query.filter || "";
 
     try {
-        // Use Regex for partial search functionality
         const users = await userModel.find({
             $or: [
-                { firstName: { "$regex": filter, "$options": "i" } }, // "i" makes it case-insensitive!
+                { firstName: { "$regex": filter, "$options": "i" } }, 
                 { lastName: { "$regex": filter, "$options": "i" } }
             ]
         });
 
-        // Map the results so you don't leak passwords or sensitive data
         return res.status(200).json({
             users: users.map(user => ({
-                username: user.username,
+                username: user.userName,
                 firstName: user.firstName,
                 lastName: user.lastName,
                 _id: user._id
@@ -201,10 +183,7 @@ router.get("/bulk", async (req, res) => {
         });
 
     } catch (err) {
-        // Use your excellent error handling
-        return res.status(500).json({
-            message: "Error while searching for users"
-        });
+        next(new AppError("An error occurred while fetching users", 500));
     }
 });
 
