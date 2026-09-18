@@ -8,6 +8,7 @@ export default function SendMoneyModal({ user, balance, onClose, onSuccess }) {
 
   const isBusy = status === 'loading';
 
+  // Close modal on escape key
   useEffect(() => {
     function handleKeyDown(e) {
       if (e.key === 'Escape' && !isBusy) onClose();
@@ -16,49 +17,71 @@ export default function SendMoneyModal({ user, balance, onClose, onSuccess }) {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isBusy, onClose]);
 
+  // Close modal on clicking outside
   function handleBackdropClick(e) {
     if (e.target === e.currentTarget && !isBusy) onClose();
   }
 
-  function handleSend(e) {
+  async function handleSend(e) {
     e.preventDefault();
     const value = Number(amount);
 
+    // 1. Validation: Prevent zero or negative amounts
     if (!value || value <= 0) {
       setStatus('error');
-      setErrorMessage('Enter a valid amount.');
+      setErrorMessage('Please enter a valid amount greater than 0.');
       return;
     }
 
+    // 2. Validation: Prevent sending more than current balance
     if (typeof balance === 'number' && value > balance) {
       setStatus('error');
-      setErrorMessage('Insufficient balance for this transfer.');
+      setErrorMessage("You don't have enough balance for this transfer.");
       return;
     }
 
+    // 3. Initiate Transfer
     setStatus('loading');
 
-    // TODO: replace with real POST /api/v1/account/transfer call.
-    // On success, call setStatus('success'); on failure, setErrorMessage(...) then setStatus('error').
-    setTimeout(() => {
-      const succeeded = Math.random() > 0.15;
-      if (succeeded) {
-        setStatus('success');
-        onSuccess?.(value);
-      } else {
-        setErrorMessage('The transfer could not be completed. Please try again.');
-        setStatus('error');
+    try {
+      const token = localStorage.getItem('token');
+      
+      const res = await fetch("http://localhost:3000/api/v1/account/transfer", {
+        method: "POST", 
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}` 
+        },
+        body: JSON.stringify({ 
+          amount: value,
+          to: user._id
+        })
+      });
+
+      const data = await res.json();
+      
+      if (!res.ok) {
+        throw new Error(data.message || "The transfer failed.");
       }
-    }, 1100);
+
+      // 4. On Success
+      setStatus('success');
+      onSuccess(value); // Tells Dashboard to reduce balance
+      
+    } catch (err) {
+      // 5. On Error
+      setErrorMessage(err.message || 'Something went wrong. Please try again.');
+      setStatus('error');
+    }
   }
 
   return (
     <div
       onMouseDown={handleBackdropClick}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm px-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 px-4 backdrop-blur-sm"
     >
       <div className="relative w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
-        {!isBusy && (
+        {!isBusy && status !== 'success' && (
           <button
             onClick={onClose}
             aria-label="Close"
@@ -72,15 +95,15 @@ export default function SendMoneyModal({ user, balance, onClose, onSuccess }) {
 
         {status === 'form' && (
           <form onSubmit={handleSend}>
-            <h2 className="text-lg font-bold text-slate-900 mb-6">Send Money</h2>
+            <h2 className="mb-6 text-lg font-bold text-slate-900">Send Money</h2>
 
             <div className="mb-6 flex items-center gap-3">
               <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-500 text-lg font-bold text-white">
-                {user?.firstName?.[0]?.toUpperCase() ?? '?'}
+                {user?.firstname?.[0]?.toUpperCase() ?? '?'}
               </div>
               <div>
                 <p className="font-semibold text-slate-900">
-                  {user?.firstName} {user?.lastName}
+                  {user?.firstname} {user?.lastname}
                 </p>
                 {typeof balance === 'number' && (
                   <p className="text-xs text-slate-500">Your balance: ₹{balance}</p>
@@ -88,7 +111,7 @@ export default function SendMoneyModal({ user, balance, onClose, onSuccess }) {
               </div>
             </div>
 
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">Amount (in ₹)</label>
+            <label className="mb-1.5 block text-sm font-medium text-slate-700">Amount (in ₹)</label>
             <input
               type="number"
               min="1"
@@ -96,7 +119,7 @@ export default function SendMoneyModal({ user, balance, onClose, onSuccess }) {
               placeholder="Enter amount"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-900/5"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-900/5"
             />
 
             <div className="mt-6 flex gap-3">
@@ -136,7 +159,7 @@ export default function SendMoneyModal({ user, balance, onClose, onSuccess }) {
             </div>
             <h2 className="mt-4 text-lg font-bold text-slate-900">Transfer successful</h2>
             <p className="mt-1 text-sm text-slate-500">
-              ₹{amount} sent to {user?.firstName} {user?.lastName}
+              ₹{amount} sent to {user?.firstname} {user?.lastname}
             </p>
             <button
               onClick={onClose}

@@ -8,18 +8,19 @@ const { userModel, accountModel } = require("../../db");
 const { JWT_SECRET } = require("../../backend/config");
 const { authMiddleware } = require("../middleware.js");
 
+
 const router = express.Router();
 
 const signupBody = zod.object({
-    userName: zod.string().email(),
-    firstName: zod.string().trim().min(3),
-    lastName: zod.string().trim().min(3),
+    username: zod.string().email(),
+    firstname: zod.string().trim().min(3),
+    lastname: zod.string().trim().min(3),
     password: zod.string().trim().min(3)
 });
 
 const updateBody = zod.object({
-    firstName: zod.string().trim().min(3).optional(),
-    lastName: zod.string().trim().min(3).optional(),
+    firstname: zod.string().trim().min(3).optional(),
+    lastname: zod.string().trim().min(3).optional(),
     password: zod.string().trim().min(3).optional(),
 }).refine((data) => Object.keys(data).length > 0, {
     message: "At least one field is required",
@@ -45,10 +46,10 @@ function inputValidation(path) {
 
 // Middleware: Check if Email exists
 async function emailCheck(req, res, next) {
-    const { userName } = req.body; 
+    const { username } = req.body; 
 
     try {
-        const existingUser = await userModel.findOne({ userName }).exec();
+        const existingUser = await userModel.findOne({ username }).exec();
 
         if (existingUser) {
             return next(new AppError("Email already taken", 409));    
@@ -62,21 +63,21 @@ async function emailCheck(req, res, next) {
 
 // Middleware: Verify user exists before sign-in
 async function existingUser(req, res, next) {
-    const { userName, password } = req.body;
+    const { username, password } = req.body;
 
-    if (!userName || !password) {
+    if (!username || !password) {
         return next(new AppError("Username and password are required", 400));      
     }
 
     try {
-        const user = await userModel.findOne({ userName }).exec();
+        const user = await userModel.findOne({ username }).exec();
 
         if (!user) {
             // 401 Unauthorized is standard for bad login credentials
             return next(new AppError("Invalid username or password", 401));
         }
 
-        req.userId = user._id;
+        req.userid = user._id;
         req.hashedPassword = user.password;
 
         next();
@@ -87,27 +88,29 @@ async function existingUser(req, res, next) {
 
 // Route: Sign Up
 router.post('/signup', inputValidation('signup'), emailCheck, async (req, res, next) => {
-    const { userName, firstName, lastName, password } = req.body;
 
+    const { username, firstname, lastname, password } = req.body;
     try {
         const hashedPassword = await bcrypt.hash(password, 10);
+      
         const userDoc = new userModel({
-            userName,
-            firstName,
-            lastName,
+            username,
+            firstname,
+            lastname,
             password: hashedPassword,
         });
-
+        
         const savedUser = await userDoc.save();
-        const jwtString = jwt.sign({ userId: savedUser._id }, JWT_SECRET);
+        const jwtString = jwt.sign({ userid: savedUser._id }, JWT_SECRET);
 
         const userAccount = new accountModel({
-            userId: savedUser._id,
+            userid: savedUser._id,
             balance: Math.floor(Math.random() * 10000) + 1 
         });
+
         await userAccount.save();
 
-        return res.status(201).json({ // 201 Created
+        return res.status(201).json({
             message: "User created successfully",
             token: jwtString
         });
@@ -119,8 +122,9 @@ router.post('/signup', inputValidation('signup'), emailCheck, async (req, res, n
 
 // Route: Sign In
 router.post('/signin', existingUser, async (req, res, next) => {
+
     const { password } = req.body;
-    const { hashedPassword, userId } = req;
+    const { hashedPassword, userid } = req;
 
     try {
         const isPasswordValid = await bcrypt.compare(password, hashedPassword);
@@ -129,7 +133,7 @@ router.post('/signin', existingUser, async (req, res, next) => {
             return next(new AppError("Invalid username or password", 401));
         }
 
-        const jwtString = jwt.sign({ userId: userId }, JWT_SECRET);
+        const jwtString = jwt.sign({ userid }, JWT_SECRET);
 
         return res.status(200).json({
             message: "Login successful",
@@ -143,15 +147,15 @@ router.post('/signin', existingUser, async (req, res, next) => {
 
 // Route: Update User
 router.put('/update', authMiddleware, inputValidation('update'), async (req, res, next) => {
-    const { firstName, lastName, password } = req.body;
+    const { firstname, lastname, password } = req.body;
     
     try {
         const update = {};
-        if (firstName !== undefined) update.firstName = firstName;
-        if (lastName !== undefined) update.lastName = lastName;
+        if (firstname !== undefined) update.firstname = firstname;
+        if (lastname !== undefined) update.lastname = lastname;
         if (password !== undefined) update.password = await bcrypt.hash(password, 10);
 
-        await userModel.updateOne({ _id: req.userId }, update);
+        await userModel.updateOne({ _id: req.userid }, update);
 
         return res.status(200).json({
             message: "Updated successfully",
@@ -168,16 +172,16 @@ router.get("/bulk", async (req, res, next) => {
     try {
         const users = await userModel.find({
             $or: [
-                { firstName: { "$regex": filter, "$options": "i" } }, 
-                { lastName: { "$regex": filter, "$options": "i" } }
+                { firstname: { "$regex": filter, "$options": "i" } }, 
+                { lastname: { "$regex": filter, "$options": "i" } }
             ]
         });
 
         return res.status(200).json({
             users: users.map(user => ({
-                username: user.userName,
-                firstName: user.firstName,
-                lastName: user.lastName,
+                username: user.username,
+                firstname: user.firstname,
+                lastname: user.lastname,
                 _id: user._id
             }))
         });

@@ -1,59 +1,84 @@
-# PayTM Clone
+# Paytm Wallet Clone
 
-A hands-on learning project that builds a simplified PayTM-like wallet/payment service. This repo uses **JavaScript**, **Node.js**, and **MongoDB (via Mongoose)** for the backend, with a **React (Vite)** frontend.
+A full-stack digital wallet and payment application built to demonstrate secure financial transactions, stateless authentication, and robust error handling across a modern web stack.
 
-## Features
+---
 
-- User signup/signin with JWT-based authentication
-- Search for other users
-- Check account balance
-- Transfer money between users, implemented with MongoDB sessions/transactions to keep balances consistent
+## 📽️ Video Walkthrough
 
-## Tech Stack
+> 🔗 **[Watch the Video Walkthrough](https://your-video-link-here)** *(Link will be updated soon)*
 
-- **Backend:** Node.js, Express
-- **Database:** MongoDB, Mongoose
-- **Auth:** JWT (jsonwebtoken), bcrypt for password hashing
-- **Validation:** Zod
-- **Frontend:** React, Vite
+---
 
-## Folder Structure
+## 🛠️ Tech Stack
 
-```
-paytm/
-├── backend/                 # Express API server
-│   ├── index.js             # App entrypoint — loads env, sets up middleware & routes
-│   ├── config.js            # Reads config (JWT_SECRET) from environment variables
-│   ├── middleware.js        # authMiddleware — verifies JWT and attaches req.userId
-│   ├── routes/
-│   │   ├── index.js         # Mounts /user and /account sub-routers
-│   │   ├── user.js          # Signup, signin, update profile, bulk user search
-│   │   └── account.js       # Balance check and money transfer (session/transaction)
-│   ├── .env.example         # Template for required environment variables
-│   └── package.json
-│
-├── frontend/                 # React (Vite) client
-│   └── src/                  # Components and app entrypoint
-│
-├── db.js                     # Mongoose connection + User/Account schemas & models
-├── Dockerfile
-└── package.json
-```
-
-## Getting Started
+### Frontend
+- **Framework & Tooling:** React (Vite)
+- **Routing & State:** React Router DOM (v6), Route Guards (`PublicRoute`, `ProtectedRoute`)
+- **Styling:** Tailwind CSS
 
 ### Backend
+- **Runtime & Framework:** Node.js, Express.js
+- **Authentication & Security:** JSON Web Tokens (`jsonwebtoken`), `bcrypt` password hashing
+- **Data Validation:** Zod schema validation
+- **Architecture:** Modular RESTful routing & centralized error handling
+
+### Database & Tools
+- **Database:** MongoDB (via Mongoose ODM) with ACID Transactions / Sessions
+- **Database GUI:** MongoDB Compass
+- **Dev Tools:** Nodemon, Dotenv, Postman
+
+---
+
+## 💡 Key Engineering Learnings
+
+- **ACID Transactions in MongoDB:** Implemented atomic transfers using `mongoose.startSession()` and `session.startTransaction()` to guarantee that sender debit and receiver credit operations succeed together or roll back completely on failure.
+- **Stateless JWT Authentication:** Built secure token generation and custom `authMiddleware` to guard protected routes and attach user context (`req.userid`).
+- **Schema Validation with Zod:** Enforced strict compile/runtime validation rules on input payloads for signup, signin, and profile updates.
+- **Centralized Error Handling:** Architected custom error classes (`AppError`) with a global Express error-handling middleware for predictable API error contracts.
+- **Modular Route Architecture:** Separated concerns into `/api/v1/user` and `/api/v1/account` sub-routers.
+- **Client-Side Security:** Built protected route wrappers to prevent unauthorized dashboard access and bounce authenticated users from auth screens.
+
+---
+
+## 🚀 Getting Started
+
+### 1. Prerequisites (Pre-run)
+
+1. **Install MongoDB & MongoDB Compass:**
+   - Download and install [MongoDB Compass](https://www.mongodb.com/products/compass).
+   - Ensure your MongoDB server is running locally or prepare your MongoDB Atlas connection string.
+2. **Environment Variables:**
+   - Create a `.env` file inside the `backend/` directory:
+     ```bash
+     cd backend
+     cp .env.example .env
+     ```
+   - Fill in your connection details in `backend/.env`:
+     ```env
+     MONGO_URL=mongodb://localhost:27017/paytm
+     JWT_SECRET=your_super_secret_key_here
+     ```
+
+---
+
+### 2. Running the Backend
+
+Open a terminal and execute:
 
 ```bash
 cd backend
 npm install
-cp .env.example .env   # then fill in MONGO_URL and JWT_SECRET
-npm run dev
+npx nodemon index.js
 ```
 
-The server starts on `http://localhost:3000`, with routes mounted under `/api/v1`.
+> The server will start listening at `http://localhost:3000` with routes under `/api/v1`.
 
-### Frontend
+---
+
+### 3. Running the Frontend
+
+Open a second terminal and execute:
 
 ```bash
 cd frontend
@@ -61,26 +86,27 @@ npm install
 npm run dev
 ```
 
-## Environment Variables
+> Open the local Vite URL (e.g. `http://localhost:5173`) in your browser.
 
-Create a `backend/.env` file (see `backend/.env.example`) with:
+---
 
-| Variable     | Description                                  |
-|--------------|-----------------------------------------------|
-| `MONGO_URL`  | MongoDB connection string (Atlas or local)   |
-| `JWT_SECRET` | Secret used to sign/verify JWTs               |
+## 🧪 Testing the Application
 
-## API Overview
+1. **Sign Up:** Register two test accounts (e.g., *Alice* and *Bob*) with random starting balances.
+2. **Search Directory:** Search for another user by name from the dashboard search bar.
+3. **Transfer Money:** Click **Send Money**, enter an amount, and verify that balances update atomically for both accounts.
+4. **Edit Profile:** Click your profile badge in the top-right header to update your first name, last name, or password.
+5. **Authentication Checks:** Test logging out and attempting to access `/dashboard` (redirects to `/signin`).
 
-| Method | Route                        | Description                          |
-|--------|-------------------------------|--------------------------------------|
-| POST   | `/api/v1/user/signup`         | Create a new user + account          |
-| POST   | `/api/v1/user/signin`         | Authenticate and receive a JWT       |
-| PUT    | `/api/v1/user/update`          | Update logged-in user's profile      |
-| GET    | `/api/v1/user/bulk`           | Search users by name                 |
-| GET    | `/api/v1/account/balance`     | Get logged-in user's account balance |
-| POST   | `/api/v1/account/transfer`    | Transfer money to another user       |
+---
 
-## Disclaimer
+## 📜 API Reference
 
-This is a learning project for practicing backend development with Node.js and MongoDB — not a real payment service.
+| Method | Endpoint | Description | Auth Required |
+|---|---|---|---|
+| `POST` | `/api/v1/user/signup` | Create user and initialize wallet | No |
+| `POST` | `/api/v1/user/signin` | Authenticate and retrieve JWT | No |
+| `PUT` | `/api/v1/user/update` | Update first name, last name, or password | Yes |
+| `GET` | `/api/v1/user/bulk` | Search registered users by substring | Yes |
+| `GET` | `/api/v1/account/user-info` | Fetch current user details & balance | Yes |
+| `POST` | `/api/v1/account/transfer` | Execute atomic wallet-to-wallet transfer | Yes |

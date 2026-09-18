@@ -21,8 +21,8 @@ function authMiddleware(req, res, next){
             })
         }
 
-        const {userId} = jwt.decode(token);
-        req.userId = userId;
+        const {userid} = jwt.decode(token);
+        req.userid = userid;
 
         next()
     }catch(err){

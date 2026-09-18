@@ -2,25 +2,50 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
 export default function Signup() {
+
   const navigate = useNavigate();
-  const [form, setForm] = useState({ firstName: '', lastName: '', email: '', password: '' });
+  const [form, setForm] = useState({ firstname: '', lastname: '', username: '', password: '' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   function handleChange(field) {
     return (e) => setForm((f) => ({ ...f, [field]: e.target.value }));
   }
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault();
     setError('');
     setLoading(true);
 
-    // TODO: replace with real POST /api/v1/user/signup call
-    setTimeout(() => {
-      setLoading(false);
-      navigate('/dashboard');
-    }, 800);
+    try{
+        const res = await fetch("http://localhost:3000/api/v1/user/signup", {
+            method: "POST",
+            headers : {
+                "Content-Type": "application/json" 
+            },
+            body: JSON.stringify(form)
+        });
+
+        const data = await res.json();
+
+        if(!res.ok){
+            throw new Error(data.message || 'Unable to sign up');
+        }
+        
+        localStorage.setItem("token", data.token);
+
+        // @> 6. Changed navigation destination.
+        // Since you successfully saved the token above, the user is now authenticated!
+        // If you send them to /signin, the new PublicRoute guard will just instantly bounce them to /dashboard anyway.
+        // It's cleaner to send them straight to dashboard here.
+        navigate("/dashboard", { replace: true });
+
+    } catch(err){
+        setError(err.message);
+    } finally {
+        setLoading(false);
+    }
   }
 
   return (
@@ -42,8 +67,8 @@ export default function Signup() {
                 type="text"
                 required
                 placeholder="John"
-                value={form.firstName}
-                onChange={handleChange('firstName')}
+                value={form.firstname}
+                onChange={handleChange('firstname')}
                 className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-900/5"
               />
             </div>
@@ -53,8 +78,8 @@ export default function Signup() {
                 type="text"
                 required
                 placeholder="Doe"
-                value={form.lastName}
-                onChange={handleChange('lastName')}
+                value={form.lastname}
+                onChange={handleChange('lastname')}
                 className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-900/5"
               />
             </div>
@@ -66,22 +91,44 @@ export default function Signup() {
               type="email"
               required
               placeholder="johndoe@example.com"
-              value={form.email}
-              onChange={handleChange('email')}
+              value={form.username}
+              onChange={handleChange('username')}
               className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-900/5"
             />
           </div>
 
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1.5">Password</label>
-            <input
-              type="password"
-              required
-              placeholder="At least 6 characters"
-              value={form.password}
-              onChange={handleChange('password')}
-              className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-900/5"
-            />
+            
+            <div className="relative w-full">
+              <input
+                type={showPassword ? "text" : "password"}
+                required
+                placeholder="At least 6 characters"
+                value={form.password}
+                onChange={handleChange('password')}
+                className="w-full rounded-lg border border-slate-300 py-2.5 pl-3 pr-10 text-sm text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-900/5"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none"
+              >
+                {showPassword ? (
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"></path>
+                    <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"></path>
+                    <path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"></path>
+                    <line x1="2" y1="2" x2="22" y2="22"></line>
+                  </svg>
+                ) : (
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"></path>
+                    <circle cx="12" cy="12" r="3"></circle>
+                  </svg>
+                )}
+              </button>
+            </div>
           </div>
 
           {error && (

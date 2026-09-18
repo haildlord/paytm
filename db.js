@@ -4,7 +4,7 @@ mongoose.connect(process.env.MONGO_URL);
 
 // schema
 const userSchema = new mongoose.Schema({
-    userName: {
+    username: {
         type : String,
         required: true,
         unique: true,
@@ -18,13 +18,13 @@ const userSchema = new mongoose.Schema({
         required: true,
         minLength: 6    
     },
-    firstName: {
+    firstname: {
         type: String,
         required: true,
         trim: true,
         maxLength: 50
     },
-    lastName: {
+    lastname: {
         type: String,
         required: true,
         trim: true,
@@ -33,7 +33,7 @@ const userSchema = new mongoose.Schema({
 });
 
 const accountSchema = new mongoose.Schema({
-    userId:{
+    userid:{
         type: mongoose.Schema.Types.ObjectId,
         ref: "User",
         required: true
