@@ -76,7 +76,7 @@ export default function EditProfileModal({ user, onClose, onUpdateSuccess }) {
       const token = localStorage.getItem('token');
       if (!token) throw new Error('Authentication token missing. Please log in again.');
 
-      const res = await fetch('http://localhost:3000/api/v1/user/update', {
+      const res = await fetch('/api/v1/user/update', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

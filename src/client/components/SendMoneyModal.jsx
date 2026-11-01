@@ -46,7 +46,7 @@ export default function SendMoneyModal({ user, balance, onClose, onSuccess }) {
     try {
       const token = localStorage.getItem('token');
       
-      const res = await fetch("http://localhost:3000/api/v1/account/transfer", {
+      const res = await fetch("/api/v1/account/transfer", {
         method: "POST", 
         headers: {
           "Content-Type": "application/json",

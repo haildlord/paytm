@@ -19,7 +19,7 @@ export default function Signup() {
     setLoading(true);
 
     try{
-        const res = await fetch("http://localhost:3000/api/v1/user/signup", {
+        const res = await fetch("/api/v1/user/signup", {
             method: "POST",
             headers : {
                 "Content-Type": "application/json" 
@@ -157,6 +157,9 @@ export default function Signup() {
           <Link to="/signin" className="font-medium text-slate-900 hover:underline">
             Login
           </Link>
+        </p>
+        <p className="mt-4 text-center text-xs text-slate-400">
+          Demo project with test money only. Please don't reuse a real password.
         </p>
       </div>
     </div>

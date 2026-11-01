@@ -44,7 +44,7 @@ export default function Dashboard() {
         const token = localStorage.getItem('token');
         if (!token) throw new Error("Authentication token missing");
 
-        const res = await fetch('http://localhost:3000/api/v1/account/user-info', {
+        const res = await fetch('/api/v1/account/user-info', {
           headers: { Authorization: `Bearer ${token}` }
         });
 
@@ -57,7 +57,10 @@ export default function Dashboard() {
         setLoggedInUser(data);
       } catch (err) {
         setUserError(err.message);
-        navigate('/signin');
+        // Drop the bad/expired token first. Otherwise PublicRoute sees it on /signin,
+        // sends us straight back to /dashboard, and the two pages bounce forever.
+        localStorage.removeItem('token');
+        navigate('/signin', { replace: true });
       } finally {
         setIsUserLoading(false);
       }
@@ -74,7 +77,7 @@ export default function Dashboard() {
 
       try {
         const token = localStorage.getItem('token');
-        const res = await fetch(`http://localhost:3000/api/v1/user/bulk?filter=${search}`, {
+        const res = await fetch(`/api/v1/user/bulk?filter=${encodeURIComponent(search)}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         
